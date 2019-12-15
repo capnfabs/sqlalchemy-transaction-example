@@ -1,11 +1,8 @@
-import os
-
-import sqlalchemy
 from dateutil import parser
-from sqlalchemy import orm, inspect
+from sqlalchemy import inspect
 
-from models import Zebra, WateringHole
-from utils import now, YEAR, step, configure_logger, Session, silence
+from models import Zebra
+from utils import step, configure_logger, Session, silence
 
 configure_logger()
 
@@ -13,7 +10,6 @@ with step():
     session = Session()
     # Grab any ol' Zebra
     zebra = session.query(Zebra).first()
-    # Or rollback, whatever
     session.commit()
 
 with step():
@@ -28,7 +24,7 @@ with step():
     session = Session()
     # Grab any ol' Zebra
     print(session.query(Zebra).first())
-    # Or rollback, whatever
+    # Rollback instead of commit
     session.rollback()
     print(f'Hello, {zebra.name}!')
 
@@ -71,8 +67,9 @@ with step():
 with step():
     session = Session()
     [za, zb] = session.query(Zebra).limit(2)
-    session.expunge(za)
     session.close()
+    assert inspect(za).detached
+    assert inspect(zb).detached
     print(f"Hi {za.name}, we're glad you're still here!")
     print(f"Hi {zb.name}, we're glad you're here too!")
 
@@ -80,10 +77,13 @@ with step():
 with step():
     session = Session()
     [za, zb] = session.query(Zebra).limit(2)
+    # Expunge one explicitly before session close
     session.expunge(za)
     # Or rollback, both have the same effect
     session.commit()
     session.close()
+    # Should work, was detached before commit()
     print(f"Hi {za.name}, we're glad you're still here!")
+    # Will raise, was detached after being expired
     print(f"Hi {zb.name}, we're glad you're here too!")
 
